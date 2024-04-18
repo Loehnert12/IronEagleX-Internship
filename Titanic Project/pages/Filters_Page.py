@@ -18,7 +18,7 @@ st.write("""
 min_age, max_age = int(df['Age'].min()), int(df['Age'].max())
 age = st.slider('Age', min_age, max_age, (min_age, max_age))
 
-gender = st.selectbox('Gender', ['Any', '0', '1'])
+gender = st.selectbox('Gender', ['Any', 'Male', 'Female'])
 
 pclass_options = ['Any'] + sorted(df['Pclass'].unique().tolist())
 pclass = st.selectbox('Passenger Class', pclass_options)
