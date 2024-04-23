@@ -5,9 +5,10 @@ import Titanic_Data
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+import TitanicV2 as titanic
 
-test_merged = pd.merge(Titanic_Data.titanic_test, Titanic_Data.titanic_submission, how="inner")
-titanic_data = pd.concat([Titanic_Data.titanic_train, test_merged], ignore_index=True)
+test_merged = pd.merge(titanic.titanic_test, titanic.titanic_submission, how="inner")
+titanic_data = pd.concat([titanic.titanic_train, test_merged], ignore_index=True)
 
 df = titanic_data
 
@@ -18,6 +19,8 @@ st.write("""
 min_age, max_age = int(df['Age'].min()), int(df['Age'].max())
 age = st.slider('Age', min_age, max_age, (min_age, max_age))
 
+sex_map = {'male': 0, 'female': 1}
+
 gender = st.selectbox('Gender', ['Any', 'Male', 'Female'])
 
 pclass_options = ['Any'] + sorted(df['Pclass'].unique().tolist())
@@ -27,8 +30,12 @@ survival_status = st.selectbox('Survival Status', ['Any', 'Survived', 'Did Not S
 
 search_query = st.text_input('Search by Name or Ticket Number')
 
+reverse_sex_map = {v: k for k, v in sex_map.items()}
+
+df['Sex'] = df['Sex'].map(reverse_sex_map)
+
 filtered_df = df[(df['Age'].between(*age)) &
-                 (df['Sex'] == gender if gender != 'Any' else True) &
+                 (df['Sex'] == gender.lower() if gender != 'Any' else True) & 
                  (df['Pclass'] == pclass if pclass != 'Any' else True) &
                  (df['Survived'] == (1 if survival_status == 'Survived' else 0) if survival_status != 'Any' else True) &
                  (df['Name'].str.contains(search_query, case=False) | df['Ticket'].str.contains(search_query, case=False))]
@@ -59,3 +66,29 @@ fig = px.histogram(df, x='Age', color=group_column, nbins=30,
 
 fig.update_traces(opacity=0.75)
 st.plotly_chart(fig, use_container_width=True)
+
+st.title("Titanic Survival Prediction")
+st.write("Please enter your information:")
+
+# User input fields
+age = st.slider("Age", 1, 100, 28)
+sex = st.selectbox("Sex", options=['Male', 'Female'])
+pclass = st.selectbox("Passenger Class", options=[1, 2, 3])
+siblings_spouses_aboard = st.slider("Siblings/Spouses Aboard", 0, 10, 1)
+parents_children_aboard = st.slider("Parents/Children Aboard", 0, 10, 0)
+fare = st.number_input("Fare", value=20.0)
+
+# Map user input to data format expected by model
+input_data = pd.DataFrame({
+    'Pclass': [pclass],
+    'Sex': [0 if sex == 'Male' else 1],
+    'Age': [age],
+    'SibSp': [siblings_spouses_aboard],
+    'Parch': [parents_children_aboard],
+    'Fare': [fare]
+})
+
+if st.button("Predict Survival"):
+    prediction = titanic.pipeline.predict(input_data)
+    result = "Survive" if prediction[0] == 1 else "Not Survive"
+    st.write(f"Prediction: You would likely {result}")

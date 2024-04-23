@@ -5,6 +5,14 @@ import Titanic_Data
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.model_selection import learning_curve
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MaxAbsScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
+
 
 test_merged = pd.merge(Titanic_Data.titanic_test, Titanic_Data.titanic_submission, how="inner")
 titanic_data = pd.concat([Titanic_Data.titanic_train, test_merged], ignore_index=True)
@@ -109,6 +117,57 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig)
+
+def plot_learning_curve(estimator, X, y, title='Learning Curve'):
+    train_sizes, train_scores, test_scores = learning_curve(
+        estimator, X, y, cv=10, train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1)
+    
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1)
+
+    plt.figure()
+    plt.title(title)
+    plt.xlabel("Training examples")
+    plt.ylabel("Score")
+    plt.grid()
+    
+    plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                     train_scores_mean + train_scores_std, color="r", alpha=0.1)
+    plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                     test_scores_mean + test_scores_std, color="g", alpha=0.1)
+
+    plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training score")
+    plt.plot(train_sizes, test_scores_mean, 'o-', color="g", label="Cross-validation score")
+
+    plt.legend(loc="lower right")
+    return plt
+
+pipeline = Pipeline([
+    ('scaler', MaxAbsScaler()),
+    ('knn', KNeighborsClassifier(n_neighbors=2))
+])
+
+X = df.drop(columns=['PassengerId', 'Name', 'Ticket', 'Survived', 'Cabin', 'Embarked'])
+y = df['Survived']
+
+st.header('Learning Curve Graph')
+
+plt = plot_learning_curve(pipeline, X, y)
+st.pyplot(plt)
+
+cv_scores = cross_val_score(pipeline, X, y, cv=10)
+
+cv_mean = np.mean(cv_scores)
+cv_std = np.std(cv_scores)
+
+st.write(f"Accuracy: {cv_mean:.2f} (+/- {cv_std * 2:.2f})")
+
+# st.write("""---""")
+# st.subheader("Here is my cross validation report")
+# cv_mean, cv_std
+print("Accuracy: %0.2f (+/- %0.2f)" % (cv_scores.mean(), cv_scores.std() * 2))
 
 # st.write("""---""")
 # st.subheader("Here is a couple of different bar charts showing the number of passengers by class")
