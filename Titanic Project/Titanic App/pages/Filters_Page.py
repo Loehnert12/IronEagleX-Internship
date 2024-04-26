@@ -13,7 +13,9 @@ titanic_data = pd.concat([titanic.titanic_train, test_merged], ignore_index=True
 df = titanic_data
 
 st.write("""
-## I built a search filter to find specific passengers.         
+# Welcome to my filters page!""")
+st.write("""
+#### Now we can utilize the model with some different filters that I created.          
          """)
 
 min_age, max_age = int(df['Age'].min()), int(df['Age'].max())

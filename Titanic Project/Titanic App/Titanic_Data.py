@@ -1,95 +1,73 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import plotly.express as px 
-import plotly.graph_objects as go
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MaxAbsScaler
-from sklearn.model_selection import learning_curve
 from sklearn.model_selection import cross_val_score
-
-st.write("""
-# Titanic Dataset Project         
-         """)
-st.write("""---""")
-st.subheader('Summary')
-st.write("""
-#### This application is taking the passenger data from the famous sinking of the Titanic and displaying various graphs and charts. I have created some filters on the "Filters Page" along with some interactive charts on the "Viz Page".
-         """)
+from sklearn.preprocessing import MaxAbsScaler
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+import streamlit as st
 
 titanic_train = pd.read_csv('train.csv')
 titanic_test = pd.read_csv('test.csv')
 titanic_submission = pd.read_csv('submission.csv')
 
-titanic_train['Age'].fillna(value = round(titanic_train['Age'].mean()), inplace=True)
+imputer = SimpleImputer(strategy='mean')
+titanic_train['Age'] = imputer.fit_transform(titanic_train[['Age']])
+titanic_train['Sex'] = titanic_train['Sex'].map({"male": 0, "female": 1})
+titanic_test['Age'] = imputer.transform(titanic_test[['Age']])
+titanic_test['Fare'].fillna(titanic_test['Fare'].mean(), inplace=True)
+titanic_test['Sex'] = titanic_test['Sex'].map({"male": 0, "female": 1})
 
-titanic_train['Sex'] = titanic_train.Sex.map({"male": 0, "female": 1})
-
-X = titanic_train.drop(columns = ['PassengerId','Name','Ticket','Survived', 'Cabin', 'Embarked'],axis=1)
-Y = titanic_train['Survived']
-
-MaxAbsScaler = MaxAbsScaler()
-X_Max = MaxAbsScaler.fit_transform(X)
-
-KNN4 = KNeighborsClassifier(n_neighbors=2).fit(X_Max,Y)
-
-print(round(KNN4.score(X_Max,Y), 4))
-
-titanic_test['Age'].fillna(value = round(titanic_test['Age'].mean()), inplace=True)
-titanic_test['Fare'].fillna(value = titanic_test['Fare'].mean(), inplace=True)
-titanic_test['Sex'] = titanic_test.Sex.map({"male": 0, "female": 1})
-X_test = titanic_test.drop(columns = ['PassengerId','Name','Ticket', 'Cabin', 'Embarked'],axis=1)
+X_train = titanic_train.drop(columns=['PassengerId', 'Name', 'Ticket', 'Survived', 'Cabin', 'Embarked'])
+Y_train = titanic_train['Survived']
+X_test = titanic_test.drop(columns=['PassengerId', 'Name', 'Ticket', 'Cabin', 'Embarked'])
 Y_test = titanic_submission['Survived']
-
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import MaxAbsScaler
-
-Test_MaxAbsScaler = MaxAbsScaler()
-Test_Max = Test_MaxAbsScaler.fit_transform(X_test)
-
-KNN4 = KNeighborsClassifier(n_neighbors=2).fit(Test_Max,Y_test)
-
-print("KNN 4")
-print(round(KNN4.score(Test_Max,Y_test), 4))
 
 pipeline = Pipeline([
     ('scaler', MaxAbsScaler()),
     ('knn', KNeighborsClassifier(n_neighbors=2))
 ])
+pipeline.fit(X_train, Y_train)
 
-def plot_learning_curve(estimator, X, y, title='Learning Curve'):
-    train_sizes, train_scores, test_scores = learning_curve(
-        estimator, X, y, cv=10, train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1)
-    
-    train_scores_mean = np.mean(train_scores, axis=1)
-    train_scores_std = np.std(train_scores, axis=1)
-    test_scores_mean = np.mean(test_scores, axis=1)
-    test_scores_std = np.std(test_scores, axis=1)
+# Evaluating on the training data
+print(f"Training Accuracy: {round(pipeline.score(X_train, Y_train), 4)}")
 
-    plt.figure()
-    plt.title(title)
-    plt.xlabel("Training examples")
-    plt.ylabel("Score")
-    plt.grid()
-    
-    plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
-                     train_scores_mean + train_scores_std, color="r", alpha=0.1)
-    plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
-                     test_scores_mean + test_scores_std, color="g", alpha=0.1)
-
-    plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training score")
-    plt.plot(train_sizes, test_scores_mean, 'o-', color="g", label="Cross-validation score")
-
-    plt.legend(loc="best")
-    return plt
-
-cv_scores = cross_val_score(pipeline, X, Y, cv=10)
-
+# Cross-validation to check robustness
+cv_scores = cross_val_score(pipeline, X_train, Y_train, cv=10)
 cv_mean = np.mean(cv_scores)
 cv_std = np.std(cv_scores)
 
-st.write(f"Accuracy: {cv_mean:.2f} (+/- {cv_std * 2:.2f})")
+print(f"Cross-Validation Score: {cv_mean:.4f} ± {cv_std:.4f}")
 
+st.title('Titanic Survival Prediction Project')
+st.write('''
+## Summary
+The sinking of the Titanic is one of the most infamous shipwrecks in history.
+
+On April 15, 1912, during her maiden voyage, the widely considered “unsinkable” RMS Titanic sank after colliding with an iceberg. Unfortunately, there weren’t enough lifeboats for everyone onboard, resulting in the death of 1502 out of 2224 passengers and crew.
+
+While there was some element of luck involved in surviving, it seems some groups of people were more likely to survive than others.
+
+In this challenge, we ask you to build a predictive model that answers the question: “what sorts of people were more likely to survive?” using passenger data (ie name, age, gender, socio-economic class, etc).
+
+### **What Data Will I Use?**
+
+I will use two similar datasets that include passenger information like name, age, gender, socio-economic class, etc. One dataset is titled train.csv and the other is titled test.csv.
+
+Train.csv will contain the details of a subset of the passengers on board (891 to be exact) and importantly, will reveal whether they survived or not, also known as the “ground truth”.
+
+The test.csv dataset contains similar information but does not disclose the “ground truth” for each passenger.
+
+Using the patterns you find in the train.csv data, predict whether the other 418 passengers on board (found in test.csv) survived.
+''')
+
+st.header('Sample Data')
+st.write("""This is the data that I will train with my model after I cleaned it and filled in missing values""")
+st.write(titanic_train.head())
+st.write("""And here is the data after cleaning it and removing columns I do not need""")
+st.write(X_train.head())
+st.subheader('Model Used: K-Nearest Neighbors (KNN)')
+st.write('KNN is a supervised machine learning algorithm often used for classification tasks. It works by understanding how data points are grouped together (based on features) and then using this knowledge to classify new, unseen data points.')
+st.subheader('Model Details')
+st.write('This KNN model was the best one that I found after running the data through multiple other models using a MaxAbsScaler. The training accuracy for this model is currently 89%')
